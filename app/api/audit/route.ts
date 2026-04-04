@@ -69,7 +69,7 @@ async function scrapeSite(url: string) {
       .slice(0, 10),
     
     // Services detection
-    services: [],
+    services: [] as string[],
     
     // Compliance flags
     makesHealthClaims: /cure|treat|guaranteed|100%|miracle/i.test(html),
