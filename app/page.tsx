@@ -1,11 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
+
+type ReportCTA = string | { cta?: string; assessment?: string };
+
+type Report = {
+  scores?: {
+    marketing?: number;
+    compliance?: number;
+    aiVisibility?: number;
+  };
+  marketing?: {
+    messaging?: string;
+    trustSignals?: string[];
+    ctas?: ReportCTA[];
+  };
+  compliance?: {
+    flags?: { issue?: string; severity?: 'high' | 'medium' | 'low'; details?: string }[];
+  };
+  competitive?: {
+    services?: string[];
+    techStack?: string[];
+  };
+  recommendations?: string[];
+};
+
+function renderCTA(cta: ReportCTA): ReactNode {
+  if (typeof cta === 'string') return cta;
+  if (!cta || typeof cta !== 'object') return 'Unknown CTA';
+  const label = cta.cta || 'Unnamed CTA';
+  return cta.assessment ? `${label} — ${cta.assessment}` : label;
+}
 
 export default function Home() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState('');
 
   const runAudit = async () => {
@@ -113,9 +143,13 @@ export default function Home() {
                 <div>
                   <h3 className="font-medium text-white">CTAs Found</h3>
                   <ul className="list-disc list-inside">
-                    {report.marketing?.ctas?.map((cta: string, i: number) => (
-                      <li key={i}>{cta}</li>
-                    )) || <li>None detected</li>}
+                    {report.marketing?.ctas?.length ? (
+                      report.marketing.ctas.map((cta, i) => (
+                        <li key={i}>{renderCTA(cta)}</li>
+                      ))
+                    ) : (
+                      <li>None detected</li>
+                    )}
                   </ul>
                 </div>
               </div>
