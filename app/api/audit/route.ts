@@ -2,9 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is missing');
+  }
+
+  return new OpenAI({ apiKey });
+}
+
+type SiteData = {
+  title: string;
+  metaDescription: string;
+  h1s: string[];
+  h2s: string[];
+  hasHIPAA: boolean;
+  hasStateBoards: boolean;
+  hasTestimonials: boolean;
+  hasCertBadges: boolean;
+  ctas: string[];
+  services: string[];
+  makesHealthClaims: boolean;
+  mentionsRx: boolean;
+  hasPricing: boolean;
+  isShopify: boolean;
+  isWordPress: boolean;
+  isSquarespace: boolean;
+  isWebflow: boolean;
+  hasSchema: boolean;
+  schemaTypes: string[];
+  bodyText: string;
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,7 +75,7 @@ async function scrapeSite(url: string) {
   const $ = cheerio.load(html);
 
   // Extract key elements
-  const data = {
+  const data: SiteData = {
     title: $('title').text().trim(),
     metaDescription: $('meta[name="description"]').attr('content') || '',
     h1s: $('h1').map((_, el) => $(el).text().trim()).get(),
@@ -69,7 +98,7 @@ async function scrapeSite(url: string) {
       .slice(0, 10),
     
     // Services detection
-    services: [] as string[],
+    services: [],
     
     // Compliance flags
     makesHealthClaims: /cure|treat|guaranteed|100%|miracle/i.test(html),
@@ -110,13 +139,13 @@ async function scrapeSite(url: string) {
 
   servicePatterns.forEach((pattern) => {
     const matches = html.match(pattern);
-    if (matches) {
+    if (matches?.[0]) {
       data.services.push(matches[0]);
     }
   });
 
   // Dedupe services
-  data.services = [...new Set(data.services.map((s: string) => s.toLowerCase()))];
+  data.services = Array.from(new Set(data.services.map((s: string) => s.toLowerCase())));
 
   // Extract schema types
   const schemaMatches = html.match(/"@type"\s*:\s*"([^"]+)"/g);
@@ -129,7 +158,7 @@ async function scrapeSite(url: string) {
   return data;
 }
 
-async function analyzeWithLLM(url: string, siteData: any) {
+async function analyzeWithLLM(url: string, siteData: SiteData) {
   const prompt = `You are a telehealth marketing expert analyzing a website. 
 
 URL: ${url}
@@ -175,6 +204,8 @@ Analyze this telehealth website and return a JSON object with:
 Be specific and actionable. Focus on telehealth-specific insights.
 
 Return ONLY valid JSON, no markdown.`;
+
+  const openai = getOpenAIClient();
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o',
